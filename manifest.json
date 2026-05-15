@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Stream Pop-up Blocker",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Blocks JS-driven pop-ups, new tabs, redirects, and overlay ads on any website.",
   "minimum_chrome_version": "111",
+  "background": {
+    "service_worker": "background.js"
+  },
   "permissions": ["storage", "tabs", "scripting"],
   "host_permissions": ["<all_urls>"],
   "action": {

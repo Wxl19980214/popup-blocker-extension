@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Pop-up Blocker Test Page</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 24px; max-width: 600px; }
+    button { margin: 6px; padding: 8px 14px; cursor: pointer; }
+    .result { margin-top: 16px; padding: 10px; border-radius: 6px; font-weight: bold; }
+    .pass { background: #dcfce7; color: #166534; }
+    .fail { background: #fee2e2; color: #991b1b; }
+  </style>
+</head>
+<body>
+  <h1>Pop-up Blocker Test Page</h1>
+  <p>Enable the extension, then test each button. Each action should be <strong>blocked</strong> when ON and <strong>work normally</strong> when OFF.</p>
+
+  <h2>1. window.open (new tab)</h2>
+  <button onclick="const w = window.open('https://example.com','_blank'); document.getElementById('r1').className='result '+(w===null?'pass':'fail'); document.getElementById('r1').textContent=w===null?'PASS: window.open returned null':'FAIL: new tab opened'">Test window.open</button>
+  <div id="r1" class="result"></div>
+
+  <h2>2. location.assign redirect</h2>
+  <button onclick="try{location.assign('https://example.com');setTimeout(()=>{document.getElementById('r2').className='result pass';document.getElementById('r2').textContent='PASS: no redirect after 500ms'},500)}catch(e){document.getElementById('r2').className='result pass';document.getElementById('r2').textContent='PASS: assign threw (blocked)'}">Test location.assign</button>
+  <div id="r2" class="result"></div>
+
+  <h2>3. location.href redirect</h2>
+  <button onclick="try{location.href='https://example.com';setTimeout(()=>{document.getElementById('r3').className='result pass';document.getElementById('r3').textContent='PASS: no redirect after 500ms'},500)}catch(e){document.getElementById('r3').className='result pass';document.getElementById('r3').textContent='PASS: href set threw (blocked)'}">Test location.href</button>
+  <div id="r3" class="result"></div>
+
+  <h2>4. _blank link click</h2>
+  <a href="https://example.com" target="_blank" id="blankLink">Click this _blank link</a>
+  <div id="r4" class="result"></div>
+  <script>
+    document.getElementById('blankLink').addEventListener('click', (e) => {
+      setTimeout(() => {
+        document.getElementById('r4').className = 'result ' + (e.defaultPrevented ? 'pass' : 'fail');
+        document.getElementById('r4').textContent = e.defaultPrevented ? 'PASS: click was prevented' : 'FAIL: new tab opened';
+      }, 100);
+    });
+  </script>
+
+  <h2>5. DOM overlay injection</h2>
+  <button onclick="
+    const el = document.createElement('div');
+    el.id = 'testOverlay';
+    el.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;font-size:24px;color:white';
+    el.textContent = 'AD OVERLAY — should vanish instantly';
+    document.body.appendChild(el);
+    setTimeout(() => {
+      const gone = !document.getElementById('testOverlay');
+      document.getElementById('r5').className = 'result ' + (gone ? 'pass' : 'fail');
+      document.getElementById('r5').textContent = gone ? 'PASS: overlay was removed' : 'FAIL: overlay still visible (dismiss it manually)';
+      if (!gone) el.remove();
+    }, 200);
+  ">Inject overlay</button>
+  <div id="r5" class="result"></div>
+</body>
+</html>

@@ -57,11 +57,16 @@
     _observer = new MutationObserver((mutations) => {
       for (const m of mutations) {
         for (const node of m.addedNodes) {
-          if (isOverlayAd(node)) node.remove();
+          if (isOverlayAd(node) && node.parentNode) node.remove();
         }
       }
     });
     _observer.observe(document.documentElement, { childList: true, subtree: true });
+
+    // Remove any overlays already present when blocking activates
+    document.querySelectorAll('body > *').forEach((el) => {
+      if (isOverlayAd(el)) el.remove();
+    });
 
     // Block click-triggered new tabs
     document.addEventListener('click', blockClick, true);
@@ -74,7 +79,9 @@
     window.open = _open;
     Location.prototype.assign = _assign;
     Location.prototype.replace = _replace;
-    Object.defineProperty(Location.prototype, 'href', _hrefDescriptor);
+    try {
+      Object.defineProperty(Location.prototype, 'href', _hrefDescriptor);
+    } catch (e) {}
 
     if (_observer) {
       _observer.disconnect();

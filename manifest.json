@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Blocks JS-driven pop-ups, new tabs, redirects, and overlay ads on any website.",
   "minimum_chrome_version": "111",
-  "permissions": ["storage", "tabs"],
+  "permissions": ["storage", "tabs", "scripting"],
   "host_permissions": ["<all_urls>"],
   "action": {
     "default_popup": "popup.html",

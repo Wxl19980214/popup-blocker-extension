@@ -7,24 +7,37 @@ function updateUI(enabled) {
   status.style.color = enabled ? '#16a34a' : '#555';
 }
 
-// Read persisted state and reflect in UI on popup open
 chrome.storage.local.get('enabled', ({ enabled }) => {
   updateUI(!!enabled);
 });
 
-toggle.addEventListener('change', () => {
+toggle.addEventListener('change', async () => {
   const enabled = toggle.checked;
-
-  // Persist state
   chrome.storage.local.set({ enabled });
   updateUI(enabled);
 
-  // Tell the active tab's content script to apply immediately (no reload needed)
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (tabs[0]?.id != null) {
-      chrome.tabs.sendMessage(tabs[0].id, { type: 'SET_STATE', enabled }).catch(() => {
-        // Tab may not have content script (e.g., chrome:// pages) — safe to ignore
-      });
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) return;
+
+  try {
+    await chrome.tabs.sendMessage(tab.id, { type: 'SET_STATE', enabled });
+  } catch {
+    // Content script not present — tab was open before extension was installed/enabled.
+    // Inject scripts directly so blocking takes effect without requiring a page reload.
+    if (enabled) {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id, allFrames: true },
+          files: ['content-main.js'],
+          world: 'MAIN',
+        });
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id, allFrames: true },
+          files: ['content-isolated.js'],
+        });
+      } catch {
+        // Restricted page (chrome://, file://, etc.) — nothing to do
+      }
     }
-  });
+  }
 });

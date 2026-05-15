@@ -1,25 +1,24 @@
 (function () {
-  // Guard against double-injection (e.g. when popup injects into an already-loaded tab)
   if (window.__blockerInstalled) return;
   window.__blockerInstalled = true;
 
   const _open = window.open.bind(window);
   const _assign = Location.prototype.assign;
   const _replace = Location.prototype.replace;
+  // Some frames (about:blank, sandboxed iframes) don't expose this descriptor
   const _hrefDescriptor = Object.getOwnPropertyDescriptor(Location.prototype, 'href');
 
   let _observer = null;
   let _active = false;
 
-  // Override window.open immediately at script load (before any page JS runs).
-  // Checks _active so it passes through when blocking is off.
+  // Override window.open immediately so it respects _active before any page JS runs
   window.open = function (...args) {
     if (_active) return null;
     return _open.apply(this, args);
   };
 
   function isOverlayAd(el) {
-    if (el.nodeType !== Node.ELEMENT_NODE) return false;
+    if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
     const style = window.getComputedStyle(el);
     const z = parseInt(style.zIndex, 10);
     if (isNaN(z) || z <= 1000) return false;
@@ -33,10 +32,8 @@
     return true;
   }
 
-  // Blocks _blank links, javascript: hrefs, and download-attribute links
-  // (streaming sites use <a download> to force fake installer downloads)
   function shouldBlock(link) {
-    if (!link) return false;
+    if (!link || typeof link.getAttribute !== 'function') return false;
     const href = (link.getAttribute('href') || '').trim();
     const target = link.getAttribute('target') || '';
     return (
@@ -47,6 +44,8 @@
   }
 
   function blockClick(e) {
+    // e.target can be null or a non-Element node (text node, SVG) in some frames
+    if (!e.target || typeof e.target.closest !== 'function') return;
     const link = e.target.closest('a');
     if (shouldBlock(link)) {
       e.preventDefault();
@@ -54,9 +53,8 @@
     }
   }
 
-  // Also block mousedown — streaming sites often trigger window.open on mousedown
-  // (fires before click, so click-only blocking misses these)
   function blockMousedown(e) {
+    if (!e.target || typeof e.target.closest !== 'function') return;
     const link = e.target.closest('a');
     if (shouldBlock(link)) {
       e.preventDefault();
@@ -67,15 +65,17 @@
   function activate() {
     if (_active) return;
     _active = true;
-    // window.open is already overridden above — _active=true is all it needs
 
     Location.prototype.assign = function () {};
     Location.prototype.replace = function () {};
-    Object.defineProperty(Location.prototype, 'href', {
-      get: _hrefDescriptor.get,
-      set: function () {},
-      configurable: true,
-    });
+    // Only redefine href if we have a valid descriptor (not available in all frames)
+    if (_hrefDescriptor) {
+      Object.defineProperty(Location.prototype, 'href', {
+        get: _hrefDescriptor.get,
+        set: function () {},
+        configurable: true,
+      });
+    }
 
     _observer = new MutationObserver((mutations) => {
       for (const m of mutations) {
@@ -97,13 +97,14 @@
   function deactivate() {
     if (!_active) return;
     _active = false;
-    // window.open override stays but _active=false makes it pass through to original
 
     Location.prototype.assign = _assign;
     Location.prototype.replace = _replace;
-    try {
-      Object.defineProperty(Location.prototype, 'href', _hrefDescriptor);
-    } catch (e) {}
+    if (_hrefDescriptor) {
+      try {
+        Object.defineProperty(Location.prototype, 'href', _hrefDescriptor);
+      } catch (e) {}
+    }
 
     if (_observer) {
       _observer.disconnect();
